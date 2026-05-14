@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Levi Ackerman — Nebula//OS</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: #050218;
+    color: #e6dffa;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+    cursor: none;
+  }
+  a { color: inherit; text-decoration: none; cursor: none; }
+
+  /* ─── 进场遮罩（信号接入动画） ─── */
+  .boot {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    transition: opacity 1.2s ease 0.3s, visibility 0s linear 1.5s;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .boot.gone { opacity: 0; visibility: hidden; pointer-events: none; }
+  .boot .signal {
+    width: 200px; height: 2px;
+    background: rgba(167, 139, 250, 0.2);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .boot .signal::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, #f0abfc, #22d3ee, transparent);
+    animation: signalSweep 1.4s ease-in-out;
+  }
+  @keyframes signalSweep {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .boot .text {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: rgba(240, 171, 252, 0.7);
+    animation: bootBlink 0.5s steps(2) infinite;
+  }
+  @keyframes bootBlink { 50% { opacity: 0.4; } }
+
+  /* ─── WebGL Canvas 背景 ─── */
+  #stage {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    z-index: -10;
+    display: block;
+  }
+
+  /* ─── 噪点纹理叠加 ─── */
+  .noise {
+    position: fixed; inset: 0;
+    z-index: -5;
+    pointer-events: none;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ─── 扫描线效果（极淡） ─── */
+  .scanlines {
+    position: fixed; inset: 0;
+    z-index: -4;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(167, 139, 250, 0.015) 3px,
+      rgba(167, 139, 250, 0.015) 4px
+    );
+  }
+
+  /* ─── 自定义光标 ─── */
+  .cursor {
+    position: fixed; top: 0; left: 0;
+    width: 24px; height: 24px;
+    margin: -12px 0 0 -12px;
+    pointer-events: none;
+    z-index: 9000;
+    mix-blend-mode: screen;
+    transition: transform 0.15s ease-out;
+  }
+  .cursor::before {
+    content: ''; position: absolute; inset: 0;
+    border: 1px solid rgba(240, 171, 252, 0.7);
+    border-radius: 50%;
+    transition: all 0.3s;
+  }
+  .cursor::after {
+    content: ''; position: absolute; inset: 9px;
+    background: #f0abfc;
+    border-radius: 50%;
+    box-shadow: 0 0 12px #f0abfc;
+  }
+  .cursor.hover::before {
+    inset: -6px;
+    border-color: rgba(34, 211, 238, 0.8);
+  }
+  .cursor.click::before {
+    animation: ringPop 0.5s ease-out;
+  }
+  @keyframes ringPop {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(4); opacity: 0; }
+  }
+
+  /* ─── 顶部导航 ─── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 22px 40px;
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 100;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    backdrop-filter: blur(10px);
+    background: rgba(5, 2, 24, 0.35);
+    border-bottom: 0.5px solid rgba(167, 139, 250, 0.1);
+    opacity: 0;
+    animation: fadeIn 1s ease 1.8s forwards;
+  }
+  nav .brand {
+    color: #f0abfc;
+    display: flex; align-items: center; gap: 10px;
+  }
+  nav .brand .dot {
+    width: 6px; height: 6px;
+    background: #f0abfc;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #f0abfc;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── HUD 角标 ─── */
+  .hud {
+    position: fixed;
+    z-index: 50;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: rgba(230, 223, 250, 0.35);
+    opacity: 0;
+    animation: fadeIn 1s ease 2.2s forwards;
+  }
+  .hud.bl { bottom: 24px; left: 40px; line-height: 1.7; }
+  .hud.br { bottom: 24px; right: 32px; text-align: right; }
+  .hud .row { display: flex; gap: 12px; }
+  .hud .k { color: rgba(230, 223, 250, 0.25); min-width: 50px; }
+  .hud .live { color: #4ade80; }
+  .hud .live::before {
+    content: '';
+    display: inline-block;
+    width: 5px; height: 5px;
+    background: #4ade80;
+    border-radius: 50%;
+    margin-right: 6px;
+    box-shadow: 0 0 6px #4ade80;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  /* ─── 角落十字标 ─── */
+  .corner {
+    position: fixed; width: 22px; height: 22px;
+    border: 1px solid rgba(167, 139, 250, 0.2);
+    pointer-events: none;
+    z-index: 3;
+    opacity: 0;
+    animation: fadeIn 0.8s ease 1.8s forwards;
+  }
+  .corner.tl { top: 18px; left: 18px; border-right: 0; border-bottom: 0; }
+  .corner.tr { top: 18px; right: 18px; border-left: 0; border-bottom: 0; }
+  .corner.bl { bottom: 18px; left: 18px; border-right: 0; border-top: 0; }
+  .corner.br { bottom: 18px; right: 18px; border-left: 0; border-top: 0; }
+
+  /* ─── 主体结构 ─── */
+  .scroll-section {
+    height: 100vh;
+    position: relative;
+  }
+  .sticky-stage {
+    position: relative;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .frame {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: translateY(50px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+    padding: 100px 40px 80px;
+    pointer-events: none;
+  }
+  .frame.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* ─── Frame 01：Intro ─── */
+  .intro-content { text-align: center; max-width: 900px; }
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.4em;
+    color: #22d3ee;
+    margin-bottom: 28px;
+    text-shadow: 0 0 14px rgba(34, 211, 238, 0.5);
+  }
+  h1.hero {
+    font-size: clamp(48px, 8vw, 96px);
+    font-weight: 500;
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    margin-bottom: 32px;
+    text-shadow: 0 0 50px rgba(167, 139, 250, 0.35);
+  }
+  h1.hero em {
+    font-style: italic;
+    color: #f0abfc;
+    text-shadow: 0 0 40px rgba(240, 171, 252, 0.55);
+  }
+  .sub {
+    font-size: 15px;
+    color: rgba(209, 196, 233, 0.7);
+    line-height: 1.7;
+    letter-spacing: 0.02em;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+  .intro-meta {
+    margin-top: 56px;
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: rgba(230, 223, 250, 0.4);
+  }
+  .intro-meta .k { color: rgba(230, 223, 250, 0.25); margin-right: 8px; }
+  .intro-meta .v { color: rgba(240, 171, 252, 0.85); }
+
+  /* ─── 响应式 ─── */
+  @media (max-width: 720px) {
+    nav { padding: 18px 20px; font-size: 9px; }
+    .frame { padding: 80px 20px 60px; }
+    h1.hero { font-size: 44px; }
+    .hud.bl { left: 20px; bottom: 16px; }
+    .hud.br { right: 20px; bottom: 16px; }
+    .intro-meta { gap: 20px; flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="boot" id="boot">
+  <div class="signal"></div>
+  <div class="text">SIGNAL INCOMING</div>
+</div>
+
+<canvas id="stage"></canvas>
+<div class="noise"></div>
+<div class="scanlines"></div>
+
+<div class="cursor" id="cursor"></div>
+
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+<div class="corner bl"></div>
+<div class="corner br"></div>
+
+<nav>
+  <div class="brand">
+    <span class="dot"></span>
+    NEBULA//OS
+  </div>
+</nav>
+
+<div class="scroll-section">
+  <div class="sticky-stage">
+
+    <div class="frame active" data-frame="0">
+      <div class="intro-content">
+        <div class="tag">⟢ TRANSMISSION 001 ⟢ 14.05.2026</div>
+        <h1 class="hero">Drifting through<br>the <em>nebula</em>.</h1>
+        <p class="sub">Levi Ackerman — designer & builder of small worlds. Currently transmitting from a quiet corner of deep space, somewhere between code and craft.</p>
+        <div class="intro-meta">
+          <div><span class="k">STATUS</span><span class="v">ONLINE</span></div>
+          <div><span class="k">LAT</span><span class="v">35.6°N</span></div>
+          <div><span class="k">LON</span><span class="v">139.7°E</span></div>
+          <div><span class="k">Δ</span><span class="v">0.0042s</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="hud bl">
+  <div class="row"><span class="k">FRAME</span><span id="hudFrame">01 / 01</span></div>
+  <div class="row"><span class="k">PROGRESS</span><span id="hudProgress">0.00</span></div>
+  <div class="row"><span class="k">SIGNAL</span><span class="live">LIVE</span></div>
+</div>
+
+<div class="hud br">
+  <div>NEBULA//OS · v2.6.0</div>
+  <div>© 2026 LEVI ACKERMAN</div>
+  <div style="margin-top: 4px; opacity: 0.6;">INTEGRITY 100%</div>
+</div>
+
+<script id="vs" type="x-shader/x-vertex">
+attribute vec2 a;
+void main(){ gl_Position = vec4(a, 0.0, 1.0); }
+</script>
+
+<script id="fs" type="x-shader/x-fragment">
+precision highp float;
+uniform vec2  u_res;
+uniform vec2  u_mouse;
+uniform float u_time;
+uniform float u_scroll;
+uniform float u_click;
+uniform vec2  u_clickPos;
+uniform float u_clickAge;
+
+float hash(vec2 p){ p=fract(p*vec2(123.34, 456.21)); p+=dot(p, p+45.32); return fract(p.x*p.y); }
+
+float caustic(vec2 p, float t){
+  vec2 q = p;
+  float v = 0.0;
+  float amp = 1.0;
+  for(int i=0; i<4; i++){
+    float fi = float(i) + 1.0;
+    q += vec2(sin(q.y*1.7 + t*0.45 + fi),
+              cos(q.x*1.4 - t*0.35 + fi*1.7)) * 0.35;
+    v += amp * (1.0 - abs(sin(q.x*2.0 + q.y*1.5 + t*0.3 + fi)));
+    q *= 1.45;
+    amp *= 0.65;
+  }
+  return clamp(v * 0.35, 0.0, 1.5);
+}
+
+void main(){
+  vec2 uv = gl_FragCoord.xy / u_res.xy;
+  vec2 p = (uv - 0.5) * vec2(u_res.x/u_res.y, 1.0);
+  vec2 mp = (u_mouse - 0.5) * vec2(u_res.x/u_res.y, 1.0);
+
+  float t = u_time * 0.55;
+  vec2 q = p * 3.2;
+  q -= mp * 1.8;
+  q += vec2(0.0, u_scroll * 0.4);
+
+  vec2 cv = (u_clickPos - 0.5) * vec2(u_res.x/u_res.y, 1.0);
+  vec2 toC = p - cv;
+  float rc = length(toC);
+  float rippleWave = sin(rc*22.0 - u_clickAge*18.0) * exp(-rc*2.8) * exp(-u_clickAge*1.6);
+  q += normalize(toC + vec2(0.0001)) * rippleWave * 1.0 * u_click;
+
+  float cR = caustic(q + vec2(0.06, 0.0), t);
+  float cG = caustic(q, t);
+  float cB = caustic(q - vec2(0.06, 0.0), t);
+
+  cR = pow(cR, 1.9);
+  cG = pow(cG, 1.9);
+  cB = pow(cB, 1.9);
+
+  vec3 voidDeep   = vec3(0.020, 0.008, 0.094);
+  vec3 nebulaDark = vec3(0.102, 0.043, 0.239);
+  vec3 nebulaMid  = vec3(0.376, 0.247, 0.690);
+  vec3 stardust   = vec3(0.941, 0.671, 0.988);
+  vec3 starGold   = vec3(0.984, 0.749, 0.141);
+  vec3 signalCyan = vec3(0.133, 0.827, 0.933);
+
+  float scrollShift = u_scroll * 0.3;
+  float depthY = p.y + sin(p.x*2.0 + t*0.2)*0.08 + scrollShift;
+  vec3 bg = mix(voidDeep, nebulaDark, smoothstep(-0.7, 0.5, depthY));
+
+  vec3 col = bg;
+  col += vec3(cR, cG*0.7, cB*1.1) * nebulaMid * 0.5;
+  col += stardust * pow(cG, 2.6) * 0.7;
+  col += starGold * pow(cG, 6.5) * 0.32;
+  col += signalCyan * pow(cB, 3.8) * 0.16;
+
+  float sd = length(p - mp);
+  col += stardust * exp(-sd*3.0) * 0.28;
+  col += signalCyan * exp(-sd*10.0) * 0.22;
+
+  col += stardust * u_click * exp(-rc*4.5) * 0.35;
+  col += signalCyan * u_click * exp(-rc*8.0) * 0.18;
+
+  col *= 1.0 - 0.5*dot(p,p);
+
+  vec2 starGrid = floor(gl_FragCoord.xy * 0.5);
+  float starSeed = hash(starGrid);
+  if(starSeed > 0.9975){
+    float twinkle = 0.5 + 0.5 * sin(t*2.0 + starSeed*100.0);
+    col += vec3(1.0) * twinkle * 0.55;
+  }
+
+  col += (hash(gl_FragCoord.xy + u_time*0.4) - 0.5) * 0.022;
+
+  gl_FragColor = vec4(col, 1.0);
+}
+</script>
+
+<script>
+(() => {
+  const stage = document.getElementById('stage');
+  const gl = stage.getContext('webgl', { antialias: false, premultipliedAlpha: false });
+  if(!gl) return;
+
+  const compile = (type, src) => {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    return s;
+  };
+  const v = compile(gl.VERTEX_SHADER, document.getElementById('vs').textContent);
+  const f = compile(gl.FRAGMENT_SHADER, document.getElementById('fs').textContent);
+  const prog = gl.createProgram();
+  gl.attachShader(prog, v); gl.attachShader(prog, f); gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'a');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  const U = {
+    res:      gl.getUniformLocation(prog, 'u_res'),
+    mouse:    gl.getUniformLocation(prog, 'u_mouse'),
+    time:     gl.getUniformLocation(prog, 'u_time'),
+    scroll:   gl.getUniformLocation(prog, 'u_scroll'),
+    click:    gl.getUniformLocation(prog, 'u_click'),
+    clickPos: gl.getUniformLocation(prog, 'u_clickPos'),
+    clickAge: gl.getUniformLocation(prog, 'u_clickAge'),
+  };
+
+  let mouse = [0.5, 0.5], mouseRaw = [0.5, 0.5];
+  let click = 0;
+  let clickPos = [0.5, 0.5];
+  let clickAge = 999;
+  const start = performance.now();
+  let lastT = start;
+
+  function fit(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    stage.width  = Math.floor(window.innerWidth  * dpr);
+    stage.height = Math.floor(window.innerHeight * dpr);
+    gl.viewport(0, 0, stage.width, stage.height);
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  const cursor = document.getElementById('cursor');
+  window.addEventListener('pointermove', e => {
+    mouseRaw[0] = e.clientX / window.innerWidth;
+    mouseRaw[1] = 1 - e.clientY / window.innerHeight;
+    cursor.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
+  });
+  window.addEventListener('pointerdown', e => {
+    clickPos[0] = e.clientX / window.innerWidth;
+    clickPos[1] = 1 - e.clientY / window.innerHeight;
+    click = 1.0;
+    clickAge = 0;
+    cursor.classList.remove('click'); void cursor.offsetWidth; cursor.classList.add('click');
+  });
+
+  document.querySelectorAll('a, nav span').forEach(el => {
+    el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+    el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+  });
+
+  function frame(){
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - lastT) / 1000);
+    lastT = now;
+    const t = (now - start) / 1000;
+
+    mouse[0] += (mouseRaw[0] - mouse[0]) * 0.08;
+    mouse[1] += (mouseRaw[1] - mouse[1]) * 0.08;
+
+    click *= Math.exp(-dt * 2.2);
+    clickAge += dt;
+
+    gl.uniform2f(U.res, stage.width, stage.height);
+    gl.uniform2f(U.mouse, mouse[0], mouse[1]);
+    gl.uniform1f(U.time, t);
+    gl.uniform1f(U.scroll, 0);
+    gl.uniform1f(U.click, click);
+    gl.uniform2f(U.clickPos, clickPos[0], clickPos[1]);
+    gl.uniform1f(U.clickAge, clickAge);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  setTimeout(() => {
+    document.getElementById('boot').classList.add('gone');
+  }, 1700);
+})();
+</script>
+
+</body>
+</html>
