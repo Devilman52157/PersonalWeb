@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <title>Levi Ackerman — Nebula//OS</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -277,13 +280,13 @@
   .scroll-hint {
     position: fixed;
     bottom: 36px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    right: 0;
     z-index: 60;
     text-align: center;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.3em;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.35em;
     color: rgba(230, 223, 250, 0.35);
     opacity: 0;
     animation: fadeIn 1s ease 2.5s forwards;
@@ -327,6 +330,7 @@
     #content-tr { top: 10%; right: 5%; max-width: 260px; }
     #content-bl { bottom: 10%; left: 5%; max-width: 260px; }
   }
+
 </style>
 </head>
 <body>
@@ -371,6 +375,7 @@
 
   </div>
 </div>
+
 
 <div class="split-content" id="content-tr" style="opacity:0;">
   <div class="tag">⟢ SECTOR 002 ⟢</div>
@@ -499,43 +504,6 @@ void main(){
   col = mix(col, portalVoid, portalStrength);
   col *= mix(1.0, 0.82, (1.0 - inside) * u_scroll * u_scroll);
 
-  float ed = length(p);
-  float eyeVis = inside * smoothstep(0.15, 0.5, u_scroll);
-  float eyeAngle = atan(p.y, p.x);
-
-  float pupilPulse = 0.85 + 0.15 * sin(t * 2.5);
-  float pupilD = ed * ed * 3.0;
-  col += vec3(0.95, 0.88, 1.0) * exp(-pupilD * 18.0) * eyeVis * pupilPulse;
-  col += vec3(0.6, 0.2, 0.9) * exp(-ed * 14.0) * eyeVis * 0.55;
-  col += signalCyan * exp(-ed * 7.0) * eyeVis * 0.18;
-
-  float energyTex = vnoise(vec2(eyeAngle * 3.0, ed * 20.0) + t * 0.4);
-  col += vec3(0.7, 0.3, 1.0) * energyTex * exp(-ed * 10.0) * eyeVis * 0.2;
-
-  float ring1 = exp(-abs(ed - 0.055) * 220.0);
-  float ring2 = exp(-abs(ed - 0.09) * 180.0);
-  float ring3 = exp(-abs(ed - 0.13) * 140.0);
-  float ringWave = 0.6 + 0.4 * sin(eyeAngle * 4.0 + t * 1.2);
-  col += vec3(0.5, 0.2, 0.85) * ring1 * eyeVis * 0.4;
-  col += vec3(0.3, 0.5, 0.9) * ring2 * eyeVis * 0.25 * ringWave;
-  col += vec3(0.25, 0.12, 0.5) * ring3 * eyeVis * 0.18;
-
-
-  float pGrid = 50.0;
-  vec2 pCell = floor(p * pGrid);
-  float pSeed = hash(pCell);
-  if(pSeed > 0.9){
-    vec2 pOff = vec2(hash(pCell+71.0), hash(pCell+137.0));
-    vec2 pPos = (pCell + pOff) / pGrid;
-    float drift = sin(t * 0.4 + pSeed * 30.0) * 0.004;
-    pPos += vec2(drift, drift * 0.6);
-    float pD = length(p - pPos);
-    float pLen = length(pPos);
-    float pRange = smoothstep(0.03, 0.05, pLen) * smoothstep(0.16, 0.12, pLen);
-    float pBright = exp(-pD * 400.0) * (0.4 + 0.6 * sin(t * 1.8 + pSeed * 50.0));
-    col += mix(vec3(0.6, 0.4, 1.0), signalCyan, pSeed) * pBright * eyeVis * pRange * 0.5;
-  }
-
   float rd1 = abs(edge1);
   float rd2 = abs(edge2);
   float riftFlicker = 0.65 + 0.35 * sin(riftAlong * 35.0 - t * 7.0);
@@ -648,11 +616,6 @@ void main(){
   const corners = document.querySelectorAll('.corner');
   const scrollHint = document.getElementById('scrollHint');
 
-  document.querySelectorAll('a').forEach(el => {
-    el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
-    el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
-  });
-
   function frame(){
     const now = performance.now();
     const dt = Math.min(0.05, (now - lastT) / 1000);
@@ -681,6 +644,7 @@ void main(){
 
     corners.forEach(c => { c.style.opacity = Math.max(0, 1 - scrollSmooth * 3); });
     scrollHint.classList.toggle('hidden', scrollSmooth > 0.05);
+
 
     gl.uniform2f(U.res, stage.width, stage.height);
     gl.uniform2f(U.mouse, mouse[0], mouse[1]);
