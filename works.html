@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Works — Nebula//OS</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: #050218;
+    color: #e6dffa;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Ambient nebula background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 30%, rgba(96, 39, 155, 0.22), transparent 65%),
+      radial-gradient(ellipse 50% 35% at 80% 70%, rgba(34, 211, 238, 0.08), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 50% 100%, rgba(167, 139, 250, 0.15), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Faint star field */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.6), transparent),
+      radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,0.4), transparent),
+      radial-gradient(1px 1px at 80% 20%, rgba(255,255,255,0.5), transparent),
+      radial-gradient(1px 1px at 35% 85%, rgba(240,171,252,0.5), transparent),
+      radial-gradient(1px 1px at 90% 50%, rgba(255,255,255,0.3), transparent),
+      radial-gradient(1px 1px at 10% 60%, rgba(34,211,238,0.4), transparent);
+    background-size: 100% 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  nav.top {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 22px 40px;
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 100;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    backdrop-filter: blur(12px);
+    background: rgba(5, 2, 24, 0.5);
+    border-bottom: 1px solid rgba(167, 139, 250, 0.08);
+  }
+  .back {
+    color: #a78bfa;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: color 0.25s, transform 0.25s;
+  }
+  .back:hover { color: #f0abfc; transform: translateX(-2px); }
+  .back .arrow { font-size: 14px; }
+  .sector {
+    color: #22d3ee;
+    opacity: 0.85;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 140px 40px 120px;
+  }
+
+  .header {
+    margin-bottom: 100px;
+  }
+  .tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: #22d3ee;
+    margin-bottom: 24px;
+    padding: 6px 14px;
+    border: 1px solid rgba(34, 211, 238, 0.3);
+    border-radius: 999px;
+  }
+  h1 {
+    font-size: clamp(56px, 9vw, 120px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 28px;
+    background: linear-gradient(135deg, #fde4ff 0%, #a78bfa 60%, #22d3ee 110%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .lede {
+    font-size: 18px;
+    color: rgba(230, 223, 250, 0.55);
+    max-width: 560px;
+    line-height: 1.7;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
+  }
+
+  .work {
+    position: relative;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(167, 139, 250, 0.14);
+    border-radius: 14px;
+    padding: 36px 32px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.4s, background 0.4s;
+  }
+  .work::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(240, 171, 252, 0.12), transparent 50%);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+  .work:hover {
+    transform: translateY(-6px);
+    border-color: rgba(240, 171, 252, 0.45);
+    background: rgba(167, 139, 250, 0.04);
+  }
+  .work:hover::before { opacity: 1; }
+
+  .work-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #22d3ee;
+    letter-spacing: 0.2em;
+    margin-bottom: 20px;
+    opacity: 0.85;
+  }
+  .work-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #fde4ff;
+  }
+  .work-desc {
+    font-size: 14px;
+    color: rgba(230, 223, 250, 0.55);
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .work-meta {
+    display: flex;
+    gap: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: rgba(167, 139, 250, 0.7);
+    text-transform: uppercase;
+  }
+
+  footer {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: rgba(167, 139, 250, 0.4);
+  }
+</style>
+</head>
+<body>
+  <nav class="top">
+    <a href="Levi Ackerman Homepage.html" class="back">
+      <span class="arrow">←</span> BACK TO RIFT
+    </a>
+    <span class="sector">◇ SECTOR 002 · WORKS ◇</span>
+  </nav>
+
+  <main>
+    <div class="header">
+      <span class="tag">TRANSMISSION ARCHIVE</span>
+      <h1>Works</h1>
+      <p class="lede">Design & code transmitted from the other side of the rift. Each project is a small world — pulled through, decoded, and stored here.</p>
+    </div>
+
+    <div class="grid" id="grid">
+      <article class="work">
+        <div class="work-id">// 001</div>
+        <h3 class="work-title">Untitled Project</h3>
+        <p class="work-desc">Placeholder transmission. Replace this card with an actual project — visuals, links, and case-study text.</p>
+        <div class="work-meta"><span>2026</span><span>·</span><span>WIP</span></div>
+      </article>
+      <article class="work">
+        <div class="work-id">// 002</div>
+        <h3 class="work-title">Untitled Project</h3>
+        <p class="work-desc">Placeholder transmission. Each card supports an ID, title, description, and metadata row.</p>
+        <div class="work-meta"><span>2026</span><span>·</span><span>WIP</span></div>
+      </article>
+      <article class="work">
+        <div class="work-id">// 003</div>
+        <h3 class="work-title">Untitled Project</h3>
+        <p class="work-desc">Placeholder transmission. Replace with your own work whenever you're ready.</p>
+        <div class="work-meta"><span>2026</span><span>·</span><span>WIP</span></div>
+      </article>
+      <article class="work">
+        <div class="work-id">// 004</div>
+        <h3 class="work-title">Untitled Project</h3>
+        <p class="work-desc">Placeholder transmission. Cards reflow into a responsive grid on smaller screens.</p>
+        <div class="work-meta"><span>2026</span><span>·</span><span>WIP</span></div>
+      </article>
+    </div>
+  </main>
+
+  <footer>◇ END OF TRANSMISSION ◇</footer>
+
+  <script>
+    document.querySelectorAll('.work').forEach(card => {
+      card.addEventListener('pointermove', e => {
+        const r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+        card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+      });
+    });
+  </script>
+</body>
+</html>
