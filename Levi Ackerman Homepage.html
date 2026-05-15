@@ -292,12 +292,6 @@
 <div class="corner bl"></div>
 <div class="corner br"></div>
 
-<nav>
-  <div class="brand">
-    <span class="dot"></span>
-    NEBULA//OS
-  </div>
-</nav>
 
 <div class="scroll-section">
   <div class="sticky-stage">
@@ -319,17 +313,6 @@
   </div>
 </div>
 
-<div class="hud bl">
-  <div class="row"><span class="k">FRAME</span><span id="hudFrame">01 / 01</span></div>
-  <div class="row"><span class="k">PROGRESS</span><span id="hudProgress">0.00</span></div>
-  <div class="row"><span class="k">SIGNAL</span><span class="live">LIVE</span></div>
-</div>
-
-<div class="hud br">
-  <div>NEBULA//OS · v2.6.0</div>
-  <div>© 2026 LEVI ACKERMAN</div>
-  <div style="margin-top: 4px; opacity: 0.6;">INTEGRITY 100%</div>
-</div>
 
 <script id="vs" type="x-shader/x-vertex">
 attribute vec2 a;
@@ -379,6 +362,14 @@ void main(){
   float rippleWave = sin(rc*22.0 - u_clickAge*18.0) * exp(-rc*2.8) * exp(-u_clickAge*1.6);
   q += normalize(toC + vec2(0.0001)) * rippleWave * 1.0 * u_click;
 
+  float riftAlong = (uv.x + (1.0 - uv.y)) * 0.5;
+  float riftAcross = (1.0 - uv.y) - uv.x;
+  riftAcross += sin(riftAlong * 22.0 + t * 1.2) * 0.010
+              + sin(riftAlong * 7.0  - t * 0.6) * 0.018
+              + sin(riftAlong * 45.0 + t * 2.8) * 0.004;
+  float riftProx = exp(-abs(riftAcross) * 10.0);
+  q += vec2(-1.0, 1.0) * riftProx * sin(riftAlong * 18.0 + t * 3.0) * 0.4;
+
   float cR = caustic(q + vec2(0.06, 0.0), t);
   float cG = caustic(q, t);
   float cB = caustic(q - vec2(0.06, 0.0), t);
@@ -411,13 +402,27 @@ void main(){
   col += stardust * u_click * exp(-rc*4.5) * 0.35;
   col += signalCyan * u_click * exp(-rc*8.0) * 0.18;
 
+  float rd = abs(riftAcross);
+  float riftFlicker = 0.65 + 0.35 * sin(riftAlong * 35.0 - t * 7.0);
+  float riftPulse = 0.85 + 0.15 * sin(t * 1.8);
+  col += vec3(0.95, 0.92, 1.0) * exp(-rd * 420.0) * riftFlicker * 0.9;
+  col += vec3(0.65, 0.30, 1.0) * exp(-rd * 55.0) * riftPulse * 0.5;
+  col += signalCyan * exp(-rd * 14.0) * 0.12;
+  col += stardust * exp(-rd * 90.0) * sin(riftAlong * 60.0 + t * 5.0) * 0.15;
+
   col *= 1.0 - 0.5*dot(p,p);
 
-  vec2 starGrid = floor(gl_FragCoord.xy * 0.5);
-  float starSeed = hash(starGrid);
-  if(starSeed > 0.9975){
-    float twinkle = 0.5 + 0.5 * sin(t*2.0 + starSeed*100.0);
-    col += vec3(1.0) * twinkle * 0.55;
+  float cellSize = 12.0;
+  vec2 starCell = floor(gl_FragCoord.xy / cellSize);
+  float starSeed = hash(starCell);
+  if(starSeed > 0.985){
+    vec2 starOff = vec2(hash(starCell + 71.0), hash(starCell + 137.0));
+    vec2 starCenter = (starCell + starOff) * cellSize;
+    float dist = length(gl_FragCoord.xy - starCenter);
+    float radius = 0.6 + starSeed * 1.2;
+    float brightness = smoothstep(radius, 0.0, dist);
+    float twinkle = 0.4 + 0.6 * sin(t * (1.5 + starSeed * 3.0) + starSeed * 100.0);
+    col += vec3(1.0) * brightness * twinkle * 0.7;
   }
 
   col += (hash(gl_FragCoord.xy + u_time*0.4) - 0.5) * 0.022;
