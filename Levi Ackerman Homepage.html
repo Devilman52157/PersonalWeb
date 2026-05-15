@@ -518,6 +518,72 @@ void main(){
   col += signalCyan * exp(-riftDist * 8.0) * openEnergy * 0.25;
   col += vec3(0.4, 0.15, 0.7) * exp(-riftDist * 3.0) * openEnergy * 0.2;
 
+  // Core soul flame: rounded lower shell, S-twisted middle, thin rising tip.
+  vec2 corePos = vec2(0.0, 0.0);
+  vec2 coreVec = p - corePos;
+  float coreDist = length(coreVec);
+  float coreVisibility = smoothstep(0.35, 0.85, u_scroll);
+  float corePulse = 0.88 + 0.12 * sin(t * 1.4);
+  float coreFlicker = 0.94 + 0.06 * sin(t * 11.0 + sin(t * 3.7) * 1.5);
+  float coreBreath = 1.0 + 0.04 * sin(t * 0.7);
+  float coreEnergy = corePulse * coreFlicker * coreVisibility;
+  float cd = coreDist / coreBreath;
+  vec3 soulViolet = vec3(0.50, 0.24, 0.92);
+  vec3 soulRose = vec3(0.96, 0.45, 0.95);
+  vec3 soulLavender = vec3(0.82, 0.66, 1.0);
+
+  vec2 flameP = coreVec;
+  flameP.y -= 0.008 * sin(t * 0.65);
+  float flameY = clamp((flameP.y + 0.10) / 0.36, 0.0, 1.0);
+  float flameGate = smoothstep(-0.10, -0.04, flameP.y) * (1.0 - smoothstep(0.19, 0.27, flameP.y));
+
+  float sBend = sin(flameY * 6.28318 - 1.15 + t * 0.85) * (0.004 + 0.017 * flameY);
+  sBend += sin(flameY * 12.56636 + t * 1.45) * 0.003 * smoothstep(0.20, 0.92, flameY);
+  vec2 soulP = flameP - vec2(sBend, 0.0);
+
+  float taper = pow(1.0 - flameY, 1.08);
+  float lowerBulb = 0.030 * exp(-pow((flameY - 0.16) * 3.25, 2.0));
+  float waist = 0.008 * exp(-pow((flameY - 0.50) * 5.0, 2.0));
+  float flameRadius = 0.005 + 0.034 * taper + lowerBulb - waist;
+  flameRadius *= 0.97 + 0.04 * sin(t * 2.0 + flameY * 10.0);
+
+  float edgeNoise = (vnoise(vec2(flameY * 7.5, t * 0.8)) - 0.5) * 0.0035 * smoothstep(0.14, 0.95, flameY);
+  float sideDist = abs(soulP.x) - (flameRadius + edgeNoise);
+  float soulClip = (1.0 - smoothstep(-0.002, 0.018, sideDist)) * flameGate;
+  float soulBody = (1.0 - smoothstep(-0.003, 0.013, sideDist)) * flameGate;
+  float soulEdge = (1.0 - smoothstep(0.003, 0.018, abs(sideDist))) * flameGate;
+  soulEdge *= smoothstep(0.22, 0.52, flameY) * (1.0 - smoothstep(0.86, 1.0, flameY));
+
+  vec2 orbP = vec2(coreVec.x * 1.16, (coreVec.y + 0.028) * 1.38);
+  float orbDist = length(orbP);
+  float orbGlow = 1.0 - smoothstep(0.0, 0.105, orbDist);
+  float orbShell = (1.0 - smoothstep(0.004, 0.020, abs(orbDist - 0.080))) * smoothstep(-0.07, 0.03, coreVec.y);
+  orbShell *= 1.0 - smoothstep(0.10, 0.16, coreVec.y);
+  float jointGlow = exp(-pow(coreVec.x / 0.062, 2.0) - pow((coreVec.y - 0.035) / 0.050, 2.0));
+
+  float spineWidth = flameRadius * 0.34 + 0.004;
+  float sSpine = exp(-pow(soulP.x / spineWidth, 2.0) * 2.8);
+  sSpine *= smoothstep(0.18, 0.78, flameY) * (1.0 - smoothstep(0.95, 1.0, flameY)) * soulClip;
+  sSpine *= 0.55 + 0.45 * sin(flameY * 18.0 - t * 2.4);
+
+  float upwardBands = pow(0.5 + 0.5 * sin(flameY * 24.0 - t * 3.2 + soulP.x * 18.0), 3.0);
+  float topWisp = exp(-abs(soulP.x) * (18.0 + flameY * 46.0)) * upwardBands;
+  topWisp *= smoothstep(0.36, 0.92, flameY) * soulClip;
+
+  col += soulViolet * soulBody * coreEnergy * 0.18;
+  col += soulLavender * soulEdge * coreEnergy * 0.20;
+  col += stardust * sSpine * coreEnergy * 0.14;
+  col += soulLavender * topWisp * coreEnergy * 0.12;
+  col += soulRose * orbGlow * coreEnergy * 0.22;
+  col += soulLavender * orbShell * coreEnergy * 0.16;
+  col += soulRose * jointGlow * coreEnergy * 0.10;
+
+  col += vec3(1.0, 0.85, 0.95) * exp(-cd * 44.0) * coreEnergy * 0.56;
+  col += stardust * exp(-cd * 20.0) * coreEnergy * 0.70;
+  col += soulViolet * exp(-cd * 8.5) * coreEnergy * 0.42;
+  col += soulLavender * exp(-cd * 5.0) * coreEnergy * 0.14;
+  col += stardust * exp(-cd * 2.2) * coreEnergy * 0.08;
+
 
   col *= 1.0 - 0.5*dot(p,p);
 
