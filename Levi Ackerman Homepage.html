@@ -402,6 +402,13 @@ uniform float u_clickAge;
 
 float hash(vec2 p){ p=fract(p*vec2(123.34, 456.21)); p+=dot(p, p+45.32); return fract(p.x*p.y); }
 
+float vnoise(vec2 p){
+  vec2 i=floor(p), f=fract(p);
+  f=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),
+             mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);
+}
+
 float caustic(vec2 p, float t){
   vec2 q = p;
   float v = 0.0;
@@ -491,6 +498,43 @@ void main(){
   portalVoid += signalCyan * 0.04 * pow(caustic(q * 0.6, t * 1.3), 2.0);
   col = mix(col, portalVoid, portalStrength);
   col *= mix(1.0, 0.82, (1.0 - inside) * u_scroll * u_scroll);
+
+  float ed = length(p);
+  float eyeVis = inside * smoothstep(0.15, 0.5, u_scroll);
+  float eyeAngle = atan(p.y, p.x);
+
+  float pupilPulse = 0.85 + 0.15 * sin(t * 2.5);
+  float pupilD = ed * ed * 3.0;
+  col += vec3(0.95, 0.88, 1.0) * exp(-pupilD * 18.0) * eyeVis * pupilPulse;
+  col += vec3(0.6, 0.2, 0.9) * exp(-ed * 14.0) * eyeVis * 0.55;
+  col += signalCyan * exp(-ed * 7.0) * eyeVis * 0.18;
+
+  float energyTex = vnoise(vec2(eyeAngle * 3.0, ed * 20.0) + t * 0.4);
+  col += vec3(0.7, 0.3, 1.0) * energyTex * exp(-ed * 10.0) * eyeVis * 0.2;
+
+  float ring1 = exp(-abs(ed - 0.055) * 220.0);
+  float ring2 = exp(-abs(ed - 0.09) * 180.0);
+  float ring3 = exp(-abs(ed - 0.13) * 140.0);
+  float ringWave = 0.6 + 0.4 * sin(eyeAngle * 4.0 + t * 1.2);
+  col += vec3(0.5, 0.2, 0.85) * ring1 * eyeVis * 0.4;
+  col += vec3(0.3, 0.5, 0.9) * ring2 * eyeVis * 0.25 * ringWave;
+  col += vec3(0.25, 0.12, 0.5) * ring3 * eyeVis * 0.18;
+
+
+  float pGrid = 50.0;
+  vec2 pCell = floor(p * pGrid);
+  float pSeed = hash(pCell);
+  if(pSeed > 0.9){
+    vec2 pOff = vec2(hash(pCell+71.0), hash(pCell+137.0));
+    vec2 pPos = (pCell + pOff) / pGrid;
+    float drift = sin(t * 0.4 + pSeed * 30.0) * 0.004;
+    pPos += vec2(drift, drift * 0.6);
+    float pD = length(p - pPos);
+    float pLen = length(pPos);
+    float pRange = smoothstep(0.03, 0.05, pLen) * smoothstep(0.16, 0.12, pLen);
+    float pBright = exp(-pD * 400.0) * (0.4 + 0.6 * sin(t * 1.8 + pSeed * 50.0));
+    col += mix(vec3(0.6, 0.4, 1.0), signalCyan, pSeed) * pBright * eyeVis * pRange * 0.5;
+  }
 
   float rd1 = abs(edge1);
   float rd2 = abs(edge2);
